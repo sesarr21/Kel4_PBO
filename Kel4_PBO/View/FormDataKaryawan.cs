@@ -35,7 +35,8 @@ namespace Kel4_PBO.View
             dataGridViewNamaKaryawan.Columns[3].Name = "Password";
             dataGridViewNamaKaryawan.Columns[4].Name = "Tanggal Pendaftaran";
             dataGridViewNamaKaryawan.CellFormatting += new DataGridViewCellFormattingEventHandler(dataGridView1_CellFormatting);
-
+            dataGridViewNamaKaryawan.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dataGridViewNamaKaryawan.RowHeadersVisible = false;
         }
 
         private void InitializeDateTimePicker()
@@ -138,11 +139,6 @@ namespace Kel4_PBO.View
             txtpassword.Clear();
             dateTimetglpendaftaran.Value = DateTime.Now;
             LoadData();
-        }
-
-        private void panel1_Paint(object sender, PaintEventArgs e)
-        {
-
         }
     }
 }

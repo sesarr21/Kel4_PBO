@@ -19,7 +19,7 @@ namespace Kel4_PBO.Service
 
     public class DataKaryawanService
     {
-        private string connectionString = "Host=localhost;Username=postgres;Password=@AP230404;Database=Project_PBO";
+        private string connectionString = "Host=localhost;Username=postgres;Password=444Ses@r;Database=kinkapp";
         public List<Karyawan> karyawanList = new List<Karyawan>();
 
         public bool Read()

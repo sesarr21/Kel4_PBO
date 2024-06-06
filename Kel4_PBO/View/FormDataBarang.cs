@@ -54,11 +54,8 @@ namespace Kel4_PBO.View
             dataGridView1.Columns["kategori"].HeaderText = "Kategori";
             dataGridView1.Columns["harga_beli"].HeaderText = "Harga Beli";
 
-            // Mengatur lebar kolom
-            dataGridView1.Columns["nama_barang"].Width = 180;
-            dataGridView1.Columns["stok"].Width = 86;
-            dataGridView1.Columns["kategori"].Width = 150;
-            dataGridView1.Columns["harga_beli"].Width = 160;
+            dataGridView1.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dataGridView1.RowHeadersVisible = false;
         }
 
         private bool columnsConfigured = false;

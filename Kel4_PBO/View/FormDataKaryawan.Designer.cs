@@ -276,7 +276,6 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(668, 457);
             panel1.TabIndex = 46;
-            panel1.Paint += panel1_Paint;
             // 
             // idAkun
             // 
