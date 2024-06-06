@@ -54,47 +54,76 @@ namespace Kel4_PBO.Service
                 SET total_transaksi = (SELECT SUM(total_harga) FROM detail_transaksi WHERE id_transaksi = @IdTransaksi)
                 WHERE id_transaksi = @IdTransaksi;";
 
+                string queryGetStok = @"
+                SELECT id_stok, jumlah_stok 
+                FROM stok 
+                WHERE id_barang = @IdBarang AND jumlah_stok > 0
+                ORDER BY tanggal_masuk
+                FOR UPDATE;";
+
                 string queryUpdateStock = @"
                 UPDATE stok
                 SET jumlah_stok = jumlah_stok - @Jumlah
-                WHERE id_barang = @IdBarang AND jumlah_stok > 0
-                ORDER BY tanggal_masuk
-                LIMIT 1;";
+                WHERE id_stok = @IdStok;";
 
                 using (var connection = new NpgsqlConnection(connectionString))
                 {
                     connection.Open();
 
-                    using (var command = new NpgsqlCommand(queryDetail, connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        command.Parameters.Add(new NpgsqlParameter("@IdTransaksi", NpgsqlTypes.NpgsqlDbType.Integer) { Value = idTransaksi });
-                        command.Parameters.Add(new NpgsqlParameter("@IdBarang", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = idBarang ?? (object)DBNull.Value });
-                        command.Parameters.Add(new NpgsqlParameter("@Jumlah", NpgsqlTypes.NpgsqlDbType.Integer) { Value = jumlah });
-                        command.Parameters.Add(new NpgsqlParameter("@TotalHarga", NpgsqlTypes.NpgsqlDbType.Integer) { Value = jumlah * hargaJual });
-                        command.ExecuteNonQuery();
-                    }
-
-                    using (var command = new NpgsqlCommand(queryUpdateTotal, connection))
-                    {
-                        command.Parameters.Add(new NpgsqlParameter("@IdTransaksi", NpgsqlTypes.NpgsqlDbType.Integer) { Value = idTransaksi });
-                        command.ExecuteNonQuery();
-                    }
-
-                    while (jumlah > 0)
-                    {
-                        using (var command = new NpgsqlCommand(queryUpdateStock, connection))
+                        try
                         {
-                            command.Parameters.Add(new NpgsqlParameter("@IdBarang", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = idBarang });
-                            command.Parameters.Add(new NpgsqlParameter("@Jumlah", NpgsqlTypes.NpgsqlDbType.Integer) { Value = jumlah });
-                            int rowsAffected = command.ExecuteNonQuery();
-                            if (rowsAffected > 0)
+                            // Insert detail transaksi
+                            using (var command = new NpgsqlCommand(queryDetail, connection, transaction))
                             {
-                                jumlah -= rowsAffected;
+                                command.Parameters.Add(new NpgsqlParameter("@IdTransaksi", NpgsqlTypes.NpgsqlDbType.Integer) { Value = idTransaksi });
+                                command.Parameters.Add(new NpgsqlParameter("@IdBarang", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = idBarang ?? (object)DBNull.Value });
+                                command.Parameters.Add(new NpgsqlParameter("@Jumlah", NpgsqlTypes.NpgsqlDbType.Integer) { Value = jumlah });
+                                command.Parameters.Add(new NpgsqlParameter("@TotalHarga", NpgsqlTypes.NpgsqlDbType.Integer) { Value = jumlah * hargaJual });
+                                command.ExecuteNonQuery();
                             }
-                            else
+
+                            // Update total transaksi
+                            using (var command = new NpgsqlCommand(queryUpdateTotal, connection, transaction))
                             {
-                                throw new Exception("Jumlah stok tidak mencukupi.");
+                                command.Parameters.Add(new NpgsqlParameter("@IdTransaksi", NpgsqlTypes.NpgsqlDbType.Integer) { Value = idTransaksi });
+                                command.ExecuteNonQuery();
                             }
+
+                            
+                            using (var command = new NpgsqlCommand(queryGetStok, connection, transaction))
+                            {
+                                command.Parameters.Add(new NpgsqlParameter("@IdBarang", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = idBarang });
+
+                                using (var reader = command.ExecuteReader())
+                                {
+                                    while (jumlah > 0 && reader.Read())
+                                    {
+                                        int idStok = reader.GetInt32(0);
+                                        int jumlahStok = reader.GetInt32(1);
+
+                                        int pengurangan = Math.Min(jumlah, jumlahStok);
+                                        jumlah -= pengurangan;
+
+                                        reader.Close(); 
+
+                                        using (var updateCommand = new NpgsqlCommand(queryUpdateStock, connection, transaction))
+                                        {
+                                            updateCommand.Parameters.Add(new NpgsqlParameter("@IdStok", NpgsqlTypes.NpgsqlDbType.Integer) { Value = idStok });
+                                            updateCommand.Parameters.Add(new NpgsqlParameter("@Jumlah", NpgsqlTypes.NpgsqlDbType.Integer) { Value = pengurangan });
+                                            updateCommand.ExecuteNonQuery();
+                                        }
+                                    }
+                                }
+                            }
+
+                            transaction.Commit();
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            throw new Exception("Kesalahan saat menambahkan detail transaksi: " + ex.Message);
                         }
                     }
                 }
